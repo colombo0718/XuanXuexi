@@ -1,0 +1,9 @@
+.git/
+__pycache__/
+*.py[cod]
+desktop.ini
+*.pdf
+*.pptx
+*.ppt
+*.zip
+tocfl-material-gen/
