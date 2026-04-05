@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pinyin Poker 64 → 8 張橫式 A4 PDF</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        "Noto Sans CJK TC", "PingFang TC", sans-serif;
+      background: #e3f2fd;
+      padding: 16px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 8px;
+      font-size: 1.4rem;
+      color: #1a237e;
+    }
+    .desc {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #333;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    button {
+      padding: 8px 16px;
+      border-radius: 999px;
+      border: none;
+      background: #1976d2;
+      color: #fff;
+      font-size: 0.95rem;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    button:hover { background: #1565c0; }
+    button:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
+
+    #status {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #444;
+      margin-bottom: 12px;
+      min-height: 1.2em;
+    }
+
+    #sheets {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .sheet-wrapper {
+      padding: 0;
+      border-radius: 0;
+      box-shadow: none;
+      border: 1px solid #bbb;
+      background: #fff;
+    }
+
+    .sheet-title {
+      text-align: center;
+      font-size: 0.9rem;
+      margin-bottom: 4px;
+      color: #1a237e;
+    }
+
+    /* canvas 以 A4 橫式比例顯示 */
+    canvas {
+      display: block;
+      width: min(100vw - 40px, 900px);
+      aspect-ratio: 297 / 210; /* A4 landscape */
+      background: #ffffff;
+    }
+  </style>
+
+  <!-- jsPDF：產生多頁 A4 PDF（mm 為單位） -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <h1>Pinyin Poker 64 → 8 張橫式 A4 PDF</h1>
+  <div class="desc">
+    A4 橫式（297×210mm）、卡牌直立（63×88mm），每頁 2 列 × 4 欄 共 8 張。<br>
+    從 <code>pp64/</code> 讀入 64 張卡牌 PNG，先預覽，再一鍵下載 8 頁 PDF。
+  </div>
+
+  <div class="controls">
+    <button id="btnLoad">載入 64 張卡牌並排版</button>
+    <button id="btnPdf" disabled>產生 8 頁 A4 PDF</button>
+  </div>
+
+  <div id="status"></div>
+  <div id="sheets"></div>
+
+  <script>
+    // === 真實尺寸設定（mm） ===
+    const PAGE_W_MM = 297; // A4 橫式寬
+    const PAGE_H_MM = 210; // A4 橫式高
+
+    // 撲克牌尺寸：約 63×88mm
+    const CARD_W_MM = 63;
+    const CARD_H_MM = 88;
+
+    // 每頁擺 2 列 × 4 欄
+    const ROWS = 2;
+    const COLS = 4;
+
+    // 邊界與間距（這組會剛好塞滿一張 A4）
+    const MARGIN_LEFT_MM = 15;
+    const MARGIN_TOP_MM  = 10;
+    const GAP_X_MM = 5;
+    const GAP_Y_MM = 14;
+
+    // canvas 預覽用：mm→px 比例（只影響畫面，不影響實際列印尺寸）
+    const MM_TO_PX = 3; // 297*3=891px, 210*3=630px
+
+    // 檢查一下數學（console 用，方便之後你要調整）
+    console.log("寬檢查：", 4*CARD_W_MM + 3*GAP_X_MM + 2*MARGIN_LEFT_MM, "mm (should ≈ 297)");
+    console.log("高檢查：", 2*CARD_H_MM + GAP_Y_MM + 2*MARGIN_TOP_MM, "mm (should ≈ 210)");
+
+    // === 卡牌檔案清單：pp64/L0.png ~ WF.png ===
+    function buildCardFileList() {
+      const suits = ["L", "S", "R", "W"];
+      const ranks = ["0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F"];
+      const files = [];
+      for (const s of suits) {
+        for (const r of ranks) {
+          files.push(`pp64/${s}${r}.png`);
+        }
+      }
+      return files;
+    }
+    const CARD_FILES = buildCardFileList(); // 64 個檔名
+
+    // === 工具：載入圖片 + 轉成 dataURL（給 jsPDF 用） ===
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = (e) => reject(e);
+        img.src = src;
+      });
+    }
+
+    function imageToDataURL(img) {
+      const c = document.createElement("canvas");
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      const ctx = c.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      return c.toDataURL("image/png");
+    }
+
+    async function loadAllCards() {
+      const statusEl = document.getElementById("status");
+      statusEl.textContent = "正在載入卡牌圖片…";
+
+      const result = []; // { img, dataUrl }
+      for (let i = 0; i < CARD_FILES.length; i++) {
+        const src = CARD_FILES[i];
+        try {
+          const img = await loadImage(src);
+          const dataUrl = imageToDataURL(img);
+          result.push({ img, dataUrl });
+          statusEl.textContent = `正在載入卡牌圖片… (${i+1} / ${CARD_FILES.length})`;
+        } catch (err) {
+          console.error("載入失敗：", src, err);
+          statusEl.textContent = `載入失敗：${src}`;
+          throw err;
+        }
+      }
+
+      statusEl.textContent = "全部 64 張卡牌載入完成，開始排版 A4…";
+      return result;
+    }
+
+    // === 在頁面上畫出 8 張 A4 預覽 ===
+    function createSheetsPreview(cards) {
+      const sheetsContainer = document.getElementById("sheets");
+      sheetsContainer.innerHTML = "";
+
+      const sheetCanvases = [];
+      const PAGE_COUNT = 8;
+      const CARDS_PER_PAGE = ROWS * COLS; // 8
+
+      for (let p = 0; p < PAGE_COUNT; p++) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "sheet-wrapper";
+
+        const title = document.createElement("div");
+        title.className = "sheet-title";
+        title.textContent = `第 ${p+1} 張 A4（卡片 ${p*CARDS_PER_PAGE + 1} ～ ${(p+1)*CARDS_PER_PAGE}）`;
+        wrapper.appendChild(title);
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        canvas.width  = PAGE_W_MM * MM_TO_PX;
+        canvas.height = PAGE_H_MM * MM_TO_PX;
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const startIndex = p * CARDS_PER_PAGE;
+        const endIndex   = Math.min(startIndex + CARDS_PER_PAGE, cards.length);
+
+        for (let i = startIndex; i < endIndex; i++) {
+          const { img } = cards[i];
+          const localIndex = i - startIndex; // 0~7
+          const row = Math.floor(localIndex / COLS); // 0~1
+          const col = localIndex % COLS;            // 0~3
+
+          const xMm = MARGIN_LEFT_MM + col * (CARD_W_MM + GAP_X_MM);
+          const yMm = MARGIN_TOP_MM  + row * (CARD_H_MM + GAP_Y_MM);
+
+          const xPx = xMm * MM_TO_PX;
+          const yPx = yMm * MM_TO_PX;
+          const wPx = CARD_W_MM * MM_TO_PX;
+          const hPx = CARD_H_MM * MM_TO_PX;
+
+          ctx.drawImage(img, xPx, yPx, wPx, hPx);
+        }
+
+        wrapper.appendChild(canvas);
+        sheetsContainer.appendChild(wrapper);
+        sheetCanvases.push(canvas);
+      }
+
+      return sheetCanvases;
+    }
+
+    // === 依照「真實 mm 座標」把 64 張卡塞進 8 頁 PDF ===
+    async function exportPdf(cards) {
+      const statusEl = document.getElementById("status");
+      statusEl.textContent = "正在產生 PDF…";
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4"
+      });
+
+      const PAGE_COUNT = 8;
+      const CARDS_PER_PAGE = ROWS * COLS;
+
+      for (let p = 0; p < PAGE_COUNT; p++) {
+        if (p > 0) doc.addPage();
+
+        const startIndex = p * CARDS_PER_PAGE;
+        const endIndex   = Math.min(startIndex + CARDS_PER_PAGE, cards.length);
+
+        for (let i = startIndex; i < endIndex; i++) {
+          const { dataUrl } = cards[i];
+          const localIndex = i - startIndex;
+          const row = Math.floor(localIndex / COLS);
+          const col = localIndex % COLS;
+
+          const xMm = MARGIN_LEFT_MM + col * (CARD_W_MM + GAP_X_MM);
+          const yMm = MARGIN_TOP_MM  + row * (CARD_H_MM + GAP_Y_MM);
+
+          doc.addImage(dataUrl, "PNG", xMm, yMm, CARD_W_MM, CARD_H_MM);
+        }
+      }
+
+      doc.save("PinyinPoker_8A4_realSize.pdf");
+      statusEl.textContent = "PDF 產生完成！（印表機請選「實際大小」）";
+    }
+
+    // === 綁定按鈕 ===
+    let loadedCards = null;
+
+    document.getElementById("btnLoad").addEventListener("click", async () => {
+      const btnLoad = document.getElementById("btnLoad");
+      const btnPdf  = document.getElementById("btnPdf");
+      btnLoad.disabled = true;
+      btnPdf.disabled  = true;
+
+      try {
+        const cards = await loadAllCards();
+        loadedCards = cards;
+        createSheetsPreview(cards);
+        document.getElementById("status").textContent =
+          "排版完成，請確認下方 8 張 A4 預覽，若滿意可按「產生 8 頁 A4 PDF」。";
+        btnPdf.disabled = false;
+      } catch (err) {
+        console.error(err);
+        document.getElementById("status").textContent =
+          "發生錯誤，請打開開發者工具查看 console 訊息。";
+      } finally {
+        btnLoad.disabled = false;
+      }
+    });
+
+    document.getElementById("btnPdf").addEventListener("click", async () => {
+      if (!loadedCards) return;
+      const btnPdf = document.getElementById("btnPdf");
+      btnPdf.disabled = true;
+      try {
+        await exportPdf(loadedCards);
+      } finally {
+        btnPdf.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

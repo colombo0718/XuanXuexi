@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>Iconify CDN 動物 Emoji 多來源對照表</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    p.desc {
+      text-align: center;
+      color: #555;
+      font-size: 14px;
+      margin-top: 0;
+      margin-bottom: 18px;
+    }
+    .table-container {
+      overflow-x: auto;
+      max-width: 100%;
+      margin: 0 auto;
+    }
+    table {
+      border-collapse: collapse;
+      background: #fff;
+      box-shadow: 0 0 8px rgba(0,0,0,0.08);
+      min-width: 980px;
+      margin: 0 auto;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px 10px;
+      text-align: center;
+      vertical-align: middle;
+      font-size: 13px;
+    }
+    th {
+      background: #eef;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    td:first-child {
+      background: #fafafa;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .emoji-img {
+      width: 42px;
+      height: 42px;
+    }
+    .license-note {
+      margin-top: 20px;
+      font-size: 12px;
+      color: #666;
+      max-width: 760px;
+      line-height: 1.5;
+      margin-left: auto;
+      margin-right: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Iconify CDN 動物 Emoji 多來源對照表</h1>
+  <p class="desc">
+    使用 <code>https://api.iconify.design/&lt;set&gt;:&lt;name&gt;.svg</code> 載入不同 emoji/icon 集，
+    對照同一隻動物在各套圖庫中的風格差異。
+  </p>
+
+  <div class="table-container">
+    <table id="emojiTable">
+      <thead>
+        <tr>
+          <th>動物</th>
+          <th>OpenMoji<br><small>openmoji</small></th>
+          <th>Twemoji<br><small>twemoji</small></th>
+          <th>Noto Emoji<br><small>noto</small></th>
+          <th>Fluent Flat<br><small>fluent-emoji-flat</small></th>
+          <th>Fluent High Contrast<br><small>fluent-emoji-high-contrast</small></th>
+          <th>Fluent Color (3D)<br><small>fluent-emoji</small></th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- 內容由 JS 產生 -->
+      </tbody>
+    </table>
+  </div>
+
+  <div class="license-note">
+    <p>※ Emoji 授權摘要（實際產品需依各專案官方說明標註）：</p>
+    <ul>
+      <li>OpenMoji – CC BY-SA 4.0</li>
+      <li>Twemoji – CC BY 4.0</li>
+      <li>Noto Emoji – Apache 2.0 / SIL Open Font License</li>
+      <li>Fluent Emoji Flat / High Contrast / Color – MIT License</li>
+    </ul>
+    <p>
+      若要擴充更多 emoji 集，只要照這個模式在 JS 裡新增一個「來源欄位」，
+      再指定對應的 Iconify icon 名稱即可。
+    </p>
+  </div>
+
+  <script>
+    // 動物清單：每個動物指定各套 icon 的名稱
+    const animals = [
+      {
+        label: "🐶 狗",
+        icons: {
+          openmoji: "openmoji:1f436",
+          twemoji: "twemoji:1f436",
+          noto: "noto:dog",
+          fluentFlat: "fluent-emoji-flat:dog",
+          fluentHC: "fluent-emoji-high-contrast:dog",
+          fluentColor: "fluent-emoji:dog"
+        }
+      },
+      {
+        label: "🐱 貓",
+        icons: {
+          openmoji: "openmoji:1f431",
+          twemoji: "twemoji:1f431",
+          noto: "noto:cat-face",
+          fluentFlat: "fluent-emoji-flat:cat",
+          fluentHC: "fluent-emoji-high-contrast:cat",
+          fluentColor: "fluent-emoji:cat"
+        }
+      },
+      {
+        label: "🐰 兔子",
+        icons: {
+          openmoji: "openmoji:1f430",
+          twemoji: "twemoji:1f430",
+          noto: "noto:rabbit-face",
+          fluentFlat: "fluent-emoji-flat:rabbit",
+          fluentHC: "fluent-emoji-high-contrast:rabbit",
+          fluentColor: "fluent-emoji:rabbit"
+        }
+      },
+      {
+        label: "🐴 馬",
+        icons: {
+          openmoji: "openmoji:1f434",
+          twemoji: "twemoji:1f434",
+          noto: "noto:horse-face",
+          fluentFlat: "fluent-emoji-flat:horse",
+          fluentHC: "fluent-emoji-high-contrast:horse",
+          fluentColor: "fluent-emoji:horse"
+        }
+      },
+      {
+        label: "🐔 雞",
+        icons: {
+          openmoji: "openmoji:1f414",
+          twemoji: "twemoji:1f414",
+          noto: "noto:chicken",
+          fluentFlat: "fluent-emoji-flat:chicken",
+          fluentHC: "fluent-emoji-high-contrast:chicken",
+          fluentColor: "fluent-emoji:chicken"
+        }
+      },
+      {
+        label: "🐮 牛",
+        icons: {
+          openmoji: "openmoji:1f42e",
+          twemoji: "twemoji:1f42e",
+          noto: "noto:cow-face",
+          fluentFlat: "fluent-emoji-flat:cow",
+          fluentHC: "fluent-emoji-high-contrast:cow",
+          fluentColor: "fluent-emoji:cow"
+        }
+      },
+      {
+        label: "🐑 羊",
+        icons: {
+          openmoji: "openmoji:1f411",
+          twemoji: "twemoji:1f411",
+          noto: "noto:ewe",
+          fluentFlat: "fluent-emoji-flat:ewe",
+          fluentHC: "fluent-emoji-high-contrast:ewe",
+          fluentColor: "fluent-emoji:ewe"
+        }
+      },
+      {
+        label: "🐷 豬",
+        icons: {
+          openmoji: "openmoji:1f437",
+          twemoji: "twemoji:1f437",
+          noto: "noto:pig-face",
+          fluentFlat: "fluent-emoji-flat:pig",
+          fluentHC: "fluent-emoji-high-contrast:pig",
+          fluentColor: "fluent-emoji:pig"
+        }
+      },
+      {
+        label: "🐯 老虎",
+        icons: {
+          openmoji: "openmoji:1f42f",
+          twemoji: "twemoji:1f42f",
+          noto: "noto:tiger-face",
+          fluentFlat: "fluent-emoji-flat:tiger",
+          fluentHC: "fluent-emoji-high-contrast:tiger",
+          fluentColor: "fluent-emoji:tiger"
+        }
+      },
+      {
+        label: "🐵 猴子",
+        icons: {
+          openmoji: "openmoji:1f435",
+          twemoji: "twemoji:1f435",
+          noto: "noto:monkey-face",
+          fluentFlat: "fluent-emoji-flat:monkey",
+          fluentHC: "fluent-emoji-high-contrast:monkey",
+          fluentColor: "fluent-emoji:monkey"
+        }
+      },
+      {
+        label: "🐻 熊",
+        icons: {
+          openmoji: "openmoji:1f43b",
+          twemoji: "twemoji:1f43b",
+          noto: "noto:bear",
+          fluentFlat: "fluent-emoji-flat:bear",
+          fluentHC: "fluent-emoji-high-contrast:bear",
+          fluentColor: "fluent-emoji:bear"
+        }
+      }
+    ];
+
+    function buildTable() {
+      const tbody = document.querySelector("#emojiTable tbody");
+      animals.forEach((animal) => {
+        const tr = document.createElement("tr");
+
+        // 第一欄：文字說明
+        const tdLabel = document.createElement("td");
+        tdLabel.textContent = animal.label;
+        tr.appendChild(tdLabel);
+
+        // 依序建立六個來源欄位
+        const order = [
+          "openmoji",
+          "twemoji",
+          "noto",
+          "fluentFlat",
+          "fluentHC",
+          "fluentColor"
+        ];
+
+        order.forEach((key) => {
+          const td = document.createElement("td");
+          const iconId = animal.icons[key];
+          if (iconId) {
+            const img = document.createElement("img");
+            img.className = "emoji-img";
+            img.src = `https://api.iconify.design/${iconId}.svg`;
+            img.alt = iconId;
+            td.appendChild(img);
+          } else {
+            td.textContent = "—";
+          }
+          tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    buildTable();
+  </script>
+</body>
+</html>

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8" />
+  <title>拼音卡牌生成器</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --card-bg: #ffffff;
+      --card-border-L: #2196f3;
+      --card-border-S: #f44336;
+      --card-border-R: #4caf50;
+      --card-border-W: #ff9800;
+      --card-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+      --text-main: #222;
+      --text-sub: #555;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 20px;
+      background: radial-gradient(circle at top, #e3f2fd, #bbdefb);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        "Noto Sans CJK TC", "PingFang TC", sans-serif;
+      color: var(--text-main);
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .controls {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    button {
+      padding: 10px 20px;
+      border-radius: 999px;
+      border: none;
+      background: #1976d2;
+      color: #fff;
+      font-size: 1rem;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    button:hover {
+      background: #1565c0;
+    }
+
+    .card-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      width: 100%;
+      max-width: 1400px;
+      margin-bottom: 40px;
+    }
+
+    .card {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 63 / 88;
+      background: var(--card-bg);
+      border-radius: 12px;
+      border: 3px solid var(--card-border-L);
+      box-shadow: var(--card-shadow);
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card[data-suit="S"] {
+      border-color: var(--card-border-S);
+    }
+
+    .card[data-suit="R"] {
+      border-color: var(--card-border-R);
+    }
+
+    .card[data-suit="W"] {
+      border-color: var(--card-border-W);
+    }
+
+    /* 角落：圖標 + 數字（橫排） */
+    .corner {
+      position: absolute;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 6px;
+      font-size: 1.5rem;
+      color: var(--text-sub);
+    }
+
+    .corner img {
+      width: 32px;
+      height: 32px;
+    }
+
+    .corner.top-left {
+      top: 10px;
+      left: 10px;
+    }
+
+    .corner.bottom-right {
+      bottom: 10px;
+      right: 10px;
+      transform: rotate(180deg);
+      transform-origin: center;
+    }
+
+    /* 中央主體布局 */
+    .main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .pinyin-big {
+      font-size: 6rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .example-row {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    .example-emoji img {
+      width: 120px;
+      height: 120px;
+    }
+
+    .example-char {
+      text-align: center;
+    }
+
+    .example-char ruby {
+      font-size: 4rem;
+      font-weight: 600;
+    }
+
+    .example-char rt {
+      font-size: 2rem;
+      color: var(--text-sub);
+    }
+
+    #exportArea {
+      display: none;
+      width: 100%;
+      max-width: 1200px;
+      margin-top: 20px;
+    }
+
+    #exportGrid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .export-card {
+      width: 100%;
+      aspect-ratio: 63 / 88;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .tip {
+      font-size: 0.85rem;
+      color: #444;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    @media (max-width: 768px) {
+      .card-container {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      }
+      
+      #exportGrid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+  </style>
+
+  <!-- html2canvas：把 .card 轉成 PNG 圖片 -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</head>
+<body>
+  <h1>拼音卡牌生成器</h1>
+  
+  <div class="controls">
+    <button id="btnGenerate">生成所有卡牌</button>
+    <button id="btnExport">匯出所有卡牌 (8×8)</button>
+  </div>
+  
+  <div class="tip">點擊"生成所有卡牌"按鈕來顯示所有64張拼音卡牌</div>
+  
+  <div class="card-container" id="cardContainer"></div>
+  
+  <div id="exportArea">
+    <h2>匯出的卡牌 (8×8)</h2>
+    <div id="exportGrid"></div>
+    <button id="btnDownload">下載完整圖片</button>
+  </div>
+
+  <!-- 載入外部拼音卡牌資料 -->
+  <script src="pinyinDeck_ds.js"></script>
+  
+  <script>
+    // Emoji 到 OpenMoji 圖片的映射
+    const emojiToImage = {
+      "🦷": "1F9B7",
+      "👛": "1F45B", 
+      "💡": "1F4A1",
+      "🐶": "1F436",
+      "⚽": "26BD",
+      "📖": "1F4D6",
+      "☂️": "2602",
+      "👕": "1F455",
+      "🥤": "1F964",
+      "🦆": "1F986",
+      "🧦": "1F9E6",
+      "🐑": "1F411",
+      "🎵": "1F3B5",
+      "🍚": "1F35A",
+      "☁️": "2601",
+      "🙏": "1F64F",
+      "🤐": "1F910",
+      "🏃": "1F3C3",
+      "🐰": "1F430",
+      "💳": "1F4B3",
+      "🧼": "1F9FC",
+      "🍖": "1F356",
+      "😆": "1F606",
+      "🐷": "1F437",
+      "🐱": "1F431",
+      "✍️": "270D",
+      "🔥": "1F525",
+      "🥶": "1F976",
+      "🤔": "1F914",
+      "😈": "1F608",
+      "👂": "1F442",
+      "❄️": "2744",
+      "👘": "1F458",
+      "🐴": "1F434",
+      "🐮": "1F42E",
+      "🌺": "1F33A",
+      "⏰": "23F0",
+      "🔤": "1F524",
+      "🍲": "1F372",
+      "🐟": "1F41F",
+      "👄": "1F444",
+      "🤏": "1F90F",
+      "❓": "2753",
+      "🐲": "1F432",
+      "⭐": "2B50",
+      "🔦": "1F526",
+      "✌️": "270C",
+      "👴": "1F474",
+      "❗": "2757",
+      "🌬️": "1F32C",
+      "🧺": "1F9FA",
+      "🐔": "1F414",
+      "🚗": "1F697",
+      "🥬": "1F96C",
+      "🦢": "1F9A2",
+      "❤️": "2764",
+      "⛰️": "26F0",
+      "🛢️": "1F6E2",
+      "✔️": "2714",
+      "💰": "1F4B0",
+      "🐻": "1F43B",
+      "👊": "1F44A",
+      "😮": "1F62E",
+      "🧣": "1F9E3",
+      "💧": "1F4A7"  // 水滴
+    };
+
+    // 組別圖標映射
+    const suitIcons = {
+      "L": ["1F442", "1F4A7"],  // 耳朵 + 水滴
+      "S": ["1F444", "1F525"],  // 嘴巴 + 火
+      "R": ["1F441", "1FAB5"],  // 眼睛 + 木頭 (🪵 的 Unicode 是 1FAB5)
+      "W": ["270D", "1F32C"]    // 寫字 + 風
+    };
+
+    // 生成單張卡牌
+    function createCard(cardData) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.setAttribute('data-suit', cardData.suit);
+      
+      const suitInfo = window.PINYIN_DECK.suits[cardData.suit];
+      const cardNumber = cardData.hex; // 直接使用十六進制編號 0-F
+      
+      // 獲取對應的 OpenMoji 圖片 URL
+      const emojiCode = emojiToImage[cardData.emoji];
+      const emojiUrl = `https://cdn.jsdelivr.net/gh/hfg-gmuend/openmoji/color/618x618/${emojiCode}.png`;
+      
+      // 獲取組別圖標的 OpenMoji 圖片 URL
+      const suitIconCodes = suitIcons[cardData.suit];
+      const suitIconUrl1 = `https://cdn.jsdelivr.net/gh/hfg-gmuend/openmoji/color/618x618/${suitIconCodes[0]}.png`;
+      const suitIconUrl2 = `https://cdn.jsdelivr.net/gh/hfg-gmuend/openmoji/color/618x618/${suitIconCodes[1]}.png`;
+      
+      card.innerHTML = `
+        <div class="corner top-left">
+          <img src="${suitIconUrl1}" alt="${suitInfo.name}" crossorigin="anonymous" />
+          <img src="${suitIconUrl2}" alt="${suitInfo.name}" crossorigin="anonymous" />
+          <span>${cardNumber}</span>
+        </div>
+        <div class="corner bottom-right">
+          <img src="${suitIconUrl1}" alt="${suitInfo.name}" crossorigin="anonymous" />
+          <img src="${suitIconUrl2}" alt="${suitInfo.name}" crossorigin="anonymous" />
+          <span>${cardNumber}</span>
+        </div>
+        <div class="main">
+          <div class="pinyin-big">${cardData.main}</div>
+          <div class="example-row">
+            <div class="example-emoji">
+              <img src="${emojiUrl}" alt="${cardData.hanzi}" crossorigin="anonymous" />
+            </div>
+            <div class="example-char">
+              <ruby>${cardData.hanzi}<rt>${cardData.pinyin}</rt></ruby>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      return card;
+    }
+
+    // 生成所有卡牌
+    function generateAllCards() {
+      const container = document.getElementById('cardContainer');
+      container.innerHTML = '';
+      
+      window.PINYIN_DECK.cards.forEach(cardData => {
+        const card = createCard(cardData);
+        container.appendChild(card);
+      });
+    }
+
+    // 匯出所有卡牌為8x8網格
+    async function exportAllCards() {
+      const exportGrid = document.getElementById('exportGrid');
+      exportGrid.innerHTML = '';
+      
+      const exportArea = document.getElementById('exportArea');
+      exportArea.style.display = 'block';
+      
+      // 為每張卡創建canvas並添加到網格
+      for (const cardData of window.PINYIN_DECK.cards) {
+        const card = createCard(cardData);
+        card.style.width = '100%';
+        
+        const canvas = await html2canvas(card, {
+          backgroundColor: null,
+          scale: 1,
+          useCORS: true,
+          imageTimeout: 0
+        });
+        
+        const img = document.createElement('img');
+        img.src = canvas.toDataURL('image/png');
+        img.className = 'export-card';
+        exportGrid.appendChild(img);
+      }
+    }
+
+    // 下載完整8x8圖片
+    async function downloadFullImage() {
+      const exportGrid = document.getElementById('exportGrid');
+      
+      const canvas = await html2canvas(exportGrid, {
+        backgroundColor: '#e3f2fd',
+        scale: 1,
+        useCORS: true,
+        imageTimeout: 0
+      });
+      
+      const link = document.createElement('a');
+      link.download = 'pinyin-cards-8x8.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    // 事件監聽
+    document.getElementById('btnGenerate').addEventListener('click', generateAllCards);
+    document.getElementById('btnExport').addEventListener('click', exportAllCards);
+    document.getElementById('btnDownload').addEventListener('click', downloadFullImage);
+
+    // 初始生成卡牌
+    document.addEventListener('DOMContentLoaded', function() {
+      if (window.PINYIN_DECK) {
+        generateAllCards();
+      } else {
+        console.error('無法載入 pinyinDeck_ds.js');
+      }
+    });
+  </script>
+</body>
+</html>

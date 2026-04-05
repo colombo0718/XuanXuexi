@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8" />
+  <title>拼音 Poker 卡牌</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        "Noto Sans CJK SC", "PingFang SC", sans-serif;
+      background: radial-gradient(circle at top, #e3f2fd, #bbdefb);
+      padding: 16px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 16px;
+      font-size: 1.4rem;
+      color: #1a237e;
+    }
+
+    #deck {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .suit-group {
+      width: 100%;
+      max-width: 1400px;
+    }
+
+    .suit-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .suit-title span.icon {
+      font-size: 1.3rem;
+    }
+
+    .suit-grid {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    canvas.cardCanvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: transparent;
+    }
+
+    #downloadBtn {
+      margin: 20px auto;
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      background: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h1>漢語拼音 Poker 卡牌</h1>
+
+  <div id="deck"></div>
+  <button id="downloadBtn">下載所有 PNG 為 ZIP</button>
+
+  <!-- 你的牌組設定 -->
+  <script src="pinyinDeck_ds.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <script>
+    const CARD_W = 630;
+    const CARD_H = 880;
+    const BORDER_RADIUS = 12; // 圓角小一點
+    const BORDER_WIDTH = 8;   // 邊線細一點
+
+    // 四組牌的顏色
+    const SUIT_COLORS = {
+      L: "#42a5f5", // Listening: 藍
+      S: "#ef5350", // Speaking: 紅
+      R: "#66bb6a", // Reading: 綠
+      W: "#fbc02d"  // Writing: 黃
+    };
+
+    // 角落用的兩個 icon（用 emoji 字元，實際會轉成 OpenMoji PNG）
+    const SUIT_ICON_EMOJIS = {
+      L: ["👂", "💧"], // ear + droplet
+      S: ["👄", "🔥"], // mouth + fire
+      R: ["👀", "🪵"], // eyes + seedling
+      W: ["✍️", "🌬️"] // writing hand + wind
+    };
+    
+    
+    
+    // LeafLune 品牌 logo
+    const LEAFLUNE_LOGO_SRC = "xuanxuexi_emoji.png"; // 如果有放到子資料夾就改路徑
+    let LEAFLUNE_LOGO = null;
+    
+    function loadLeafluneLogo() {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          LEAFLUNE_LOGO = img;
+          resolve();
+        };
+        img.onerror = () => {
+          console.warn("LeafLune logo 載入失敗");
+          resolve();
+        };
+        img.src = LEAFLUNE_LOGO_SRC;
+      });
+    }
+
+    const OPENMOJI_BASE =
+      "https://cdn.jsdelivr.net/gh/hfg-gmuend/openmoji/color/618x618";
+
+    const EMOJI_IMG_CACHE = {};
+
+    // 將 emoji 轉成 OpenMoji 檔名（用第一個 code point，就能避開 FE0F 等變體）
+    function emojiToOpenMojiUrl(emoji) {
+      const cpHex = emoji.codePointAt(0).toString(16).toUpperCase();
+      return `${OPENMOJI_BASE}/${cpHex}.png`;
+    }
+
+    function loadEmojiImage(emoji) {
+      return new Promise((resolve) => {
+        if (EMOJI_IMG_CACHE[emoji]) {
+          resolve(EMOJI_IMG_CACHE[emoji]);
+          return;
+        }
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          EMOJI_IMG_CACHE[emoji] = img;
+          resolve(img);
+        };
+        img.onerror = () => {
+          console.warn("載入 OpenMoji 失敗：", emoji, emojiToOpenMojiUrl(emoji));
+          resolve(null);
+        };
+        img.src = emojiToOpenMojiUrl(emoji);
+      });
+    }
+
+    async function prepareAllEmojiImages(cards) {
+      const set = new Set();
+
+      cards.forEach((c) => set.add(c.emoji));
+      Object.values(SUIT_ICON_EMOJIS).forEach((arr) =>
+        arr.forEach((e) => set.add(e))
+      );
+
+      const promises = [];
+      set.forEach((e) => promises.push(loadEmojiImage(e)));
+      await Promise.all(promises);
+    }
+
+    function drawRoundedRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    // 畫角落：兩個 suit 圖 + 16 進位編號
+    function drawCornerCluster(ctx, originX, originY, suitKey, hex, rotate180) {
+      const icons = SUIT_ICON_EMOJIS[suitKey] || [];
+      const iconSize = 80;
+      const gap = 8;
+
+      ctx.save();
+      ctx.font = "52px system-ui, sans-serif";
+      ctx.textBaseline = "middle";
+
+      // 先算整體寬度，方便處理右下角旋轉對齊
+      let iconsWidth = icons.length * iconSize + (icons.length - 1) * gap;
+      let textWidth = ctx.measureText(hex).width + 6;
+      const totalWidth = iconsWidth + textWidth;
+      const totalHeight = iconSize;
+
+      if (rotate180) {
+        ctx.translate(originX, originY);
+        ctx.rotate(Math.PI);
+        // ctx.translate(-totalWidth, -totalHeight);
+      } else {
+        ctx.translate(originX, originY);
+      }
+
+      let x = 0;
+      const y = 0;
+
+      icons.forEach((emoji) => {
+        const img = EMOJI_IMG_CACHE[emoji];
+        if (img) {
+          ctx.drawImage(img, x, y, iconSize, iconSize);
+        }
+        x += iconSize + gap;
+      });
+
+      ctx.fillStyle = SUIT_COLORS[suitKey] || "#444";
+      ctx.fillText(hex, x + 3, iconSize / 2 + 1);
+
+      ctx.restore();
+    }
+
+    function drawCard(ctx, card) {
+      ctx.clearRect(0, 0, CARD_W, CARD_H);
+
+      // 卡片主體（白底 + 彩色外框）
+      const margin = BORDER_WIDTH * 1.2;
+
+      drawRoundedRect(
+        ctx,
+        margin,
+        margin,
+        CARD_W - margin * 2,
+        CARD_H - margin * 2,
+        BORDER_RADIUS
+      );
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+
+      ctx.lineWidth = BORDER_WIDTH;
+      ctx.strokeStyle = SUIT_COLORS[card.suit] || "#2196f3";
+      ctx.stroke();
+
+      // 左上角和右下角：suit icon + 編號
+      drawCornerCluster(ctx, margin + 10, margin + 10, card.suit, card.hex, false);
+      drawCornerCluster(
+        ctx,
+        CARD_W - margin - 10,
+        CARD_H - margin - 10,
+        card.suit,
+        card.hex,
+        true
+      );
+
+      // 中央大寫 main（b, d, sh, ang...）
+      let fontSize;
+      if (card.main.length === 1) fontSize = 220;
+      else if (card.main.length === 2) fontSize = 190;
+      else fontSize = 150;
+
+      ctx.fillStyle = "#222";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+      ctx.font = `700 ${fontSize}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans CJK SC", sans-serif`;
+      ctx.fillText(card.main, CARD_W / 2, CARD_H * 0.4);
+
+      // 下方：emoji + 漢字 + 拼音
+      const emojiImg = EMOJI_IMG_CACHE[card.emoji];
+      const emojiSize = 200;
+      const centerY = CARD_H * 0.64;
+
+      if (emojiImg) {
+        const emojiX = CARD_W / 2 - emojiSize// - 28;
+        const emojiY = centerY - emojiSize / 2;
+        ctx.drawImage(emojiImg, emojiX, emojiY, emojiSize, emojiSize);
+      }
+
+      const textX = CARD_W / 2 + emojiSize/4;
+
+      ctx.textAlign = "left";
+      // 漢字
+      ctx.fillStyle = "#222";
+      ctx.font =
+        '100px "Noto Sans CJK SC", "PingFang SC", system-ui, sans-serif';
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(card.hanzi, textX, centerY - 12);
+
+      // 拼音
+      ctx.fillStyle = "#555";
+      ctx.font = '60px system-ui, "Noto Sans", sans-serif';
+      ctx.textBaseline = "top";
+      ctx.fillText(card.pinyin, textX + 4, centerY + 10);
+      
+      // 1) 右下角小 logo（半透明，不搶畫面）
+      if (LEAFLUNE_LOGO) {
+        // const logoSize = 90; // 可以再調小，例如 70
+        // const logoX = CARD_W - margin - logoSize - 24;
+        // const logoY = margin + 8;
+        
+        
+        const logoSize = 90; // 依你原本設定
+const logoX = margin + 24;                           // 靠左
+const logoY = CARD_H - margin - logoSize - 8;       // 靠下
+// drawLeafLuneLogo(ctx, logoX, logoY, logoSize);
+    
+        ctx.save();
+        ctx.globalAlpha = 0.35; // 半透明一點，避免搶主視覺
+        ctx.drawImage(LEAFLUNE_LOGO, logoX, logoY, logoSize, logoSize);
+        ctx.restore();
+      }
+      
+      
+      
+
+      // // 2) 左下角 LeafLune，整個文字旋轉 180°
+      // ctx.save();
+      
+      // // 把原點移到「左下角往內縮」的位置，數字可以微調
+      // const pivotX = margin + 100;            // 往右縮一點
+      // const pivotY = CARD_H - margin - 40;   // 往上縮一點
+      // ctx.translate(pivotX, pivotY);
+      
+      
+      
+      
+      // // 旋轉 180 度（π 弧度）
+      // ctx.rotate(Math.PI);
+      
+      // // 以目前這個點為中心畫字
+      // ctx.textAlign = "center";
+      // ctx.textBaseline = "middle";
+      // ctx.font =
+      //   '28px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      // ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+      // ctx.fillText("LeafLune", 0, 0);
+      
+      // ctx.restore();
+      
+      
+      
+      // 右上角 LeafLune 字樣（正向）
+ctx.save();
+ctx.textAlign = "right";
+ctx.textBaseline = "top";
+ctx.font =
+  '32px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+
+// 實際位置可以微調，這裡先抓在右上角往內縮一點
+const brandX = CARD_W - margin - 24;
+const brandY = margin + 24;
+
+ctx.fillText("XuanXuexi", brandX, brandY);
+ctx.restore();
+
+      
+    }
+
+    async function main() {
+      const deck = window.PINYIN_DECK;
+      if (!deck) {
+        console.error("找不到 window.PINYIN_DECK，請確認 pinyinDeck__ds.js 已載入。");
+        return;
+      }
+
+      const suitsInfo = deck.suits;
+      const cards = deck.cards;
+
+      // 先把所有會用到的 OpenMoji 圖片 + LeafLune logo 載好
+      await Promise.all([
+        prepareAllEmojiImages(cards),
+        loadLeafluneLogo()
+      ]);
+
+      const deckEl = document.getElementById("deck");
+      const suitOrder = ["L", "S", "R", "W"];
+
+      const allCanvases = [];
+
+      suitOrder.forEach((suitKey) => {
+        const group = document.createElement("section");
+        group.className = "suit-group";
+
+        const title = document.createElement("div");
+        title.className = "suit-title";
+        title.style.color = SUIT_COLORS[suitKey] || "#000";
+
+        const iconSpan = document.createElement("span");
+        iconSpan.className = "icon";
+        iconSpan.textContent = SUIT_ICON_EMOJIS[suitKey].join(" ");
+
+        const nameSpan = document.createElement("span");
+        const suitInfo = suitsInfo[suitKey];
+        nameSpan.textContent = `${suitKey} 組 - ${suitInfo.name}`;
+
+        title.appendChild(iconSpan);
+        title.appendChild(nameSpan);
+        group.appendChild(title);
+
+        const grid = document.createElement("div");
+        grid.className = "suit-grid";
+
+        const suitCards = cards.filter((c) => c.suit === suitKey);
+        suitCards.forEach((card) => {
+          const canvas = document.createElement("canvas");
+          canvas.width = CARD_W;
+          canvas.height = CARD_H;
+          canvas.className = "cardCanvas";
+          const ctx = canvas.getContext("2d");
+          drawCard(ctx, card);
+          grid.appendChild(canvas);
+          allCanvases.push({canvas, suit: card.suit, hex: card.hex});
+        });
+
+        group.appendChild(grid);
+        deckEl.appendChild(group);
+      });
+
+      // 添加下載按鈕邏輯
+      const downloadBtn = document.getElementById("downloadBtn");
+      downloadBtn.addEventListener("click", () => downloadZip(allCanvases));
+    }
+
+    async function downloadZip(allCanvases) {
+      const zip = new JSZip();
+      for (const {canvas, suit, hex} of allCanvases) {
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const filename = `${suit}${hex}.png`;
+        zip.file(filename, blob);
+      }
+      const content = await zip.generateAsync({type: "blob"});
+      const url = URL.createObjectURL(content);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "pinyin_poker_cards.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    main();
+  </script>
+</body>
+</html>
